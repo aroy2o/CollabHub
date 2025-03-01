@@ -1,8 +1,18 @@
 import axios from 'axios';
 
+// Get backend URL from environment or use a fallback
+let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/';
+
+// Ensure the URL ends with a trailing slash
+if (!BACKEND_URL.endsWith('/')) {
+  BACKEND_URL += '/';
+}
+
+console.log('Backend URL:', BACKEND_URL); // For debugging
+
 // Create an axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL,
+  baseURL: BACKEND_URL,
 });
 
 // Add a request interceptor to add the auth token to every request
@@ -15,6 +25,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // For debugging
+    console.log(`Making ${config.method.toUpperCase()} request to: ${config.baseURL}${config.url}`);
     
     return config;
   },

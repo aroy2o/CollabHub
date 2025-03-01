@@ -44,10 +44,17 @@ const Navbar = () => {
     dispatch(toggleDarkMode());
     localStorage.setItem('darkMode', !darkMode);
   };
-
-  const handleCloseMenus = () => {
+  
+  // New function to handle profile menu link clicks
+  const handleProfileLinkClick = (path) => {
     setProfileMenuOpen(false);
-    setNotificationsOpen(false);
+    navigate(path);
+  };
+  
+  // Modified logout handler to close menu
+  const handleLogout = () => {
+    setProfileMenuOpen(false);
+    dispatch(logout());
   };
 
   const colors = darkMode ? themeColors.dark : themeColors.light;
@@ -77,10 +84,10 @@ const Navbar = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex space-x-6">
-          <Link to="/" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Home</Link>
-          <Link to="/projects" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Projects</Link>
-          <Link to="/community" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Community</Link>
-          <Link to="/resources" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Resources</Link>
+          <Link to="/" className="nav-link" style={{ color: colors.textPrimary }}>Home</Link>
+          <Link to="/projects" className="nav-link" style={{ color: colors.textPrimary }}>Projects</Link>
+          <Link to="/community" className="nav-link" style={{ color: colors.textPrimary }}>Community</Link>
+          <Link to="/resources" className="nav-link" style={{ color: colors.textPrimary }}>Resources</Link>
         </div>
 
         {/* Right Side Icons */}
@@ -133,17 +140,16 @@ const Navbar = () => {
                     <p className="font-semibold">{user.fullName || "User"}</p>
                     <p className="text-sm" style={{ color: colors.textSecondary }}>{user.email || ""}</p>
                   </div>
-                  <Link 
-                    to="/profile" 
-                    className="flex items-center space-x-2 p-3 hover:bg-opacity-20" 
+                  <button 
+                    onClick={() => handleProfileLinkClick('/profile')}
+                    className="flex items-center space-x-2 p-3 hover:bg-opacity-20 w-full text-left" 
                     style={{ color: colors.textPrimary }}
-                    onClick={handleCloseMenus}
                   >
                     <User className="w-5 h-5" />
                     <span>Profile</span>
-                  </Link>
+                  </button>
                   <button 
-                    onClick={() => { dispatch(logout()); handleCloseMenus(); }} 
+                    onClick={handleLogout} 
                     className="flex items-center space-x-2 p-3 w-full text-left text-red-500"
                   >
                     <LogOut className="w-5 h-5" />
@@ -152,7 +158,12 @@ const Navbar = () => {
                 </div>
               )}
             </div>
-          ) : null}
+          ) : (
+            <div className="ml-4 flex items-center space-x-4">
+              <Link to="/login" className="px-3 py-2 rounded-md transition-colors" style={{ color: colors.accent }}>Login</Link>
+              <Link to="/signup" className="px-3 py-2 rounded-md text-white transition-colors" style={{ backgroundColor: colors.accent }}>Sign Up</Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>

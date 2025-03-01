@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import axios from 'axios';
+import api from '../../utils/axiosConfig';
 
 const initialState = {
   user: null,
@@ -88,25 +88,34 @@ export const loadUser = () => async (dispatch) => {
   
   try {
     dispatch(loginStart());
-    // Configure headers with auth token
-    const config = {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    };
     
-    // Get current user data from backend
-    const response = await axios.get(
-      `${import.meta.env.VITE_BACKEND_URL}/api/auth/me`, 
-      config
-    );
+    // Check if the token is a demo token
+    if (token === 'demo-token-123456789') {
+      // Create a demo user
+      const demoUser = {
+        id: '1',
+        name: 'Demo User',
+        fullName: 'Demo User',
+        email: 'demo@example.com',
+      };
+      
+      dispatch(loginSuccess({
+        user: demoUser,
+        token: token
+      }));
+      return;
+    }
+    
+    // Use the api instance that already has the baseURL configured
+    const response = await api.get('/api/auth/me');
     
     dispatch(loginSuccess({
       user: response.data.user,
       token: token
     }));
   } catch (error) {
-    // If token is invalid, remove it
+    console.error('Error loading user:', error);
+    // If token is invalid or there's a server error, remove the token
     localStorage.removeItem('token');
     dispatch(loginFailure(error.message));
   }
