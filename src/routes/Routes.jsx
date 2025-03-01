@@ -1,19 +1,17 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Signup from '../components/Signup';
+import Home from '../components/Home';
 import Login from '../components/Login';
-import ProtectedRoute from './ProtectedRoute';
-import ProtectedComponent from '../components/ProtectedComponent';
-import Home from '../components/Home'; // Import the new Home component
+import Signup from '../components/Signup';
+// Import other page components
 
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/signup" element={<Signup />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/protected" element={<ProtectedRoute component={ProtectedComponent} />} />
-      {/* Update the default route */}
       <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      {/* Add other routes as needed */}
     </Routes>
   );
 };

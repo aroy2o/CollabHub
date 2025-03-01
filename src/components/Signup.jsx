@@ -1,16 +1,16 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { setEmail, setPassword, setFullName, login, selectAuth } from '../redux/reducers/authReducer';
+import { setEmail, setPassword, setFullName, loginStart, loginSuccess, loginFailure } from '../redux/reducers/authReducer';
+import api from '../utils/axiosConfig';
 import logoImage2 from '../images/collabHub.png';
 import logoImage1 from '../images/collabhub1.png';
 
 const Signup = () => {
-  const { email, password, fullName } = useSelector(selectAuth);
+  const { email, password, fullName, loading } = useSelector(state => state.auth);
   const darkMode = useSelector((state) => state.theme.darkMode);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -21,31 +21,45 @@ const Signup = () => {
       toast.error('All fields are required');
       return;
     }
+    
+    dispatch(loginStart());
+    
     try {
-      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/auth/signup`, { 
+      const response = await api.post('/api/auth/signup', { 
         email, 
         password,
         fullName 
       });
-      // Store user data in Redux
-      dispatch(login(response.data.user));
+      
+      // Store user data and token in Redux
+      dispatch(loginSuccess({
+        user: response.data.user,
+        token: response.data.token
+      }));
+      
       toast.success('Account created successfully');
       navigate('/');
     } catch (error) {
       console.error('Error signing up:', error);
+      dispatch(loginFailure(error.response?.data?.message || 'Error creating account'));
       toast.error(error.response?.data?.message || 'Error creating account');
     }
   };
 
   // For demo purposes
   const handleDemoSignup = () => {
-    // Create demo user
+    // Create demo user with mock token
     const demoUser = {
       id: '1',
       name: fullName || 'Demo User',
       email: email || 'demo@example.com',
     };
-    dispatch(login(demoUser));
+    
+    dispatch(loginSuccess({
+      user: demoUser,
+      token: 'demo-token-123456789'
+    }));
+    
     toast.success('Demo account created');
     navigate('/');
   };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Moon, Sun, Menu, X, User, LogOut, Search, Bell } from "lucide-react";
 import { useSelector, useDispatch } from 'react-redux';
@@ -17,14 +17,37 @@ const Navbar = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const profileRef = useRef(null);
+  const notificationRef = useRef(null);
 
   useEffect(() => {
     dispatch(applyThemeFromStorage());
   }, [dispatch]);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileMenuOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const handleToggleTheme = () => {
     dispatch(toggleDarkMode());
     localStorage.setItem('darkMode', !darkMode);
+  };
+
+  const handleCloseMenus = () => {
+    setProfileMenuOpen(false);
+    setNotificationsOpen(false);
   };
 
   const colors = darkMode ? themeColors.dark : themeColors.light;
@@ -54,10 +77,10 @@ const Navbar = () => {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex space-x-6">
-          <Link to="/" className="nav-link" style={{ color: colors.textPrimary }}>Home</Link>
-          <Link to="/projects" className="nav-link" style={{ color: colors.textPrimary }}>Projects</Link>
-          <Link to="/community" className="nav-link" style={{ color: colors.textPrimary }}>Community</Link>
-          <Link to="/resources" className="nav-link" style={{ color: colors.textPrimary }}>Resources</Link>
+          <Link to="/" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Home</Link>
+          <Link to="/projects" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Projects</Link>
+          <Link to="/community" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Community</Link>
+          <Link to="/resources" className="nav-link" style={{ color: colors.textPrimary }} onClick={handleCloseMenus}>Resources</Link>
         </div>
 
         {/* Right Side Icons */}
@@ -72,7 +95,7 @@ const Navbar = () => {
           </button>
  
           {/* Notifications */}
-          <div className="relative">
+          <div className="relative" ref={notificationRef}>
             <button 
               onClick={() => setNotificationsOpen(!notificationsOpen)} 
               className="p-2 rounded-lg" 
@@ -92,7 +115,7 @@ const Navbar = () => {
 
           {/* User Profile or Login Button */}
           {isAuthenticated && user ? (
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button 
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)} 
                 className="p-2 rounded-lg" 
@@ -114,12 +137,13 @@ const Navbar = () => {
                     to="/profile" 
                     className="flex items-center space-x-2 p-3 hover:bg-opacity-20" 
                     style={{ color: colors.textPrimary }}
+                    onClick={handleCloseMenus}
                   >
                     <User className="w-5 h-5" />
                     <span>Profile</span>
                   </Link>
                   <button 
-                    onClick={() => dispatch(logout())} 
+                    onClick={() => { dispatch(logout()); handleCloseMenus(); }} 
                     className="flex items-center space-x-2 p-3 w-full text-left text-red-500"
                   >
                     <LogOut className="w-5 h-5" />
@@ -128,48 +152,9 @@ const Navbar = () => {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="ml-4 flex items-center space-x-4">
-              <Link 
-                to="/login" 
-                className="px-3 py-2 rounded-md transition-colors"
-                style={{ 
-                  color: colors.accent
-                }}
-              >
-                Login
-              </Link>
-              <Link 
-                to="/signup" 
-                className="px-3 py-2 rounded-md text-white transition-colors"
-                style={{ 
-                  backgroundColor: colors.accent
-                }}
-              >
-                Sign Up
-              </Link>
-            </div>
-          )}
-
-          {/* Mobile Menu Button */}
-          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden">
-            {menuOpen ? 
-              <X className="w-6 h-6" style={{ color: colors.textPrimary }} /> : 
-              <Menu className="w-6 h-6" style={{ color: colors.textPrimary }} />
-            }
-          </button>
+          ) : null}
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {menuOpen && (
-        <div className="md:hidden mt-4 space-y-2">
-          <Link to="/" className="block px-4 py-2" style={{ color: colors.textPrimary }}>Home</Link>
-          <Link to="/projects" className="block px-4 py-2" style={{ color: colors.textPrimary }}>Projects</Link>
-          <Link to="/community" className="block px-4 py-2" style={{ color: colors.textPrimary }}>Community</Link>
-          <Link to="/resources" className="block px-4 py-2" style={{ color: colors.textPrimary }}>Resources</Link>
-        </div>
-      )}
     </nav>
   );
 };
