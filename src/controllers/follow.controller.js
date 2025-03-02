@@ -343,3 +343,78 @@ exports.checkIfFollowing = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc Get the follow status between current user and target user
+ * @route GET /api/users/follow/:id/status
+ * @access Private
+ */
+exports.getFollowStatus = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user._id;
+    
+    logger.info(`Follow status check: ${currentUserId} -> ${targetUserId}`);
+    
+    // Validate user ID
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format"
+      });
+    }
+    
+    // Find both users in parallel for efficiency
+    const [targetUser, currentUser] = await Promise.all([
+      User.findById(targetUserId).select('_id fullName followers'),
+      User.findById(currentUserId).select('_id following')
+    ]);
+    
+    // Check if both users exist
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Target user not found"
+      });
+    }
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Current user not found"
+      });
+    }
+    
+    // Check if following
+    const isFollowing = currentUser.following.some(
+      id => id.toString() === targetUserId
+    );
+    
+    return res.status(200).json({
+      success: true,
+      isFollowing,
+      currentUser: {
+        id: currentUser._id,
+        followingCount: currentUser.following.length
+      },
+      targetUser: {
+        id: targetUser._id,
+        name: targetUser.fullName,
+        followerCount: targetUser.followers.length
+      }
+    });
+  } catch (error) {
+    logger.error('Check follow status error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?._id,
+      targetId: req.params?.id
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Server error checking follow status",
+      error: error.message
+    });
+  }
+};

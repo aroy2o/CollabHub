@@ -12,7 +12,8 @@ const {
   unfollowUser,
   getFollowers,
   getFollowing,
-  checkIfFollowing
+  checkIfFollowing,
+  getFollowStatus  // Import the new controller
 } = require("../controllers/follow.controller");
 const { protect, adminOnly, isOwnerOrAdmin } = require("../middleware/auth.middleware");
 const mongoose = require("mongoose");
@@ -259,6 +260,13 @@ router.get("/follow-debug/:id", protect, validateUserId, async (req, res) => {
     });
   }
 });
+
+/**
+ * @route   GET /api/users/follow/:id/status
+ * @desc    Check follow status between current user and target user
+ * @access  Private
+ */
+router.get("/follow/:id/status", protect, validateUserId, getFollowStatus);
 
 /**
  * @route   GET /api/users/:id
