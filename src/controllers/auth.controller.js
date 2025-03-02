@@ -14,13 +14,13 @@ dotenv.config();
  */
 exports.registerUser = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, email, password, username } = req.body; // Add username to destructuring
 
     // Check all required fields
     if (!fullName || !email || !password) {
       return res.status(400).json({ 
         success: false,
-        message: "All fields are required" 
+        message: "Full name, email, and password are required" 
       });
     }
     
@@ -51,7 +51,8 @@ exports.registerUser = async (req, res) => {
     const user = new User({ 
       fullName: fullName.trim(), 
       email: cleanedEmail, 
-      password
+      password,
+      username: username ? username.trim() : undefined // Add username if provided
     });
     
     // Save user to database with error handling
@@ -71,7 +72,8 @@ exports.registerUser = async (req, res) => {
       user: { 
         id: savedUser._id, 
         fullName: savedUser.fullName, 
-        email: savedUser.email 
+        email: savedUser.email,
+        username: savedUser.username // Include username in response
       },
       token,
     });

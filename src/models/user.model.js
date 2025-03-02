@@ -9,6 +9,15 @@ const DEFAULT_PROFILE_IMAGE = "https://cdn.pixabay.com/photo/2015/10/05/22/37/bl
 
 const UserSchema = new mongoose.Schema(
   {
+    username: {
+      type: String,
+      // required: [true, "Username is required"], // Remove username requirement
+      trim: true,
+      unique: true,
+      minlength: [3, "Username must be at least 3 characters"],
+      maxlength: [30, "Username cannot be more than 30 characters"],
+      match: [/^[a-zA-Z0-9_\-.]+$/, "Invalid username format"],
+    },
     fullName: {
       type: String,
       required: [true, "Full name is required"],

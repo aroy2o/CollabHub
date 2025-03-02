@@ -15,7 +15,7 @@ exports.registerUser = async (req, res) => {
   try {
     const { fullName, email, password } = req.body;
 
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !password ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -93,7 +93,7 @@ exports.getUserProfile = async (req, res) => {
  */
 exports.updateUserProfile = async (req, res) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, email, password, biography, skillSet, userLocation, profilePicture } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user) {
@@ -102,10 +102,14 @@ exports.updateUserProfile = async (req, res) => {
 
     user.fullName = fullName || user.fullName;
     user.email = email || user.email;
+    user.biography = biography !== undefined ? biography : user.biography;
+    user.skillSet = skillSet || user.skillSet;
+    user.userLocation = userLocation !== undefined ? userLocation : user.userLocation;
+    user.profilePicture = profilePicture || user.profilePicture;
 
     if (password) {
       const salt = await bcrypt.genSalt(10);
-      user.hashedPassword = await bcrypt.hash(password, salt);
+      user.password = await bcrypt.hash(password, salt);
     }
 
     await user.save();

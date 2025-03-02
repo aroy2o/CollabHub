@@ -6,24 +6,26 @@ const DEFAULT_PROFILE_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.or
 
 /**
  * @desc Upload user profile picture to Cloudinary
- * @route POST /api/users/profile/picture
+ * @route POST /api/profile-picture
  * @access Private
  */
 exports.uploadProfilePicture = async (req, res) => {
   try {
-    // Check if file exists
-    if (!req.files || !req.files.profilePicture) {
+    // Debug: log the uploaded files to verify the field name
+    console.log('Uploaded files:', req.files);
+    
+    // Accept file from either "profilePicture" or "file" field
+    const file = (req.files && (req.files.profilePicture || req.files.file));
+    if (!file) {
       return res.status(400).json({
         success: false,
         message: 'Please upload a profile picture'
       });
     }
-
-    const userId = req.user._id;
-    const profilePictureFile = req.files.profilePicture;
     
+    const userId = req.user._id;
     // Validate file type
-    if (!profilePictureFile.mimetype.startsWith('image')) {
+    if (!file.mimetype.startsWith('image')) {
       return res.status(400).json({
         success: false,
         message: 'Please upload an image file'
@@ -44,11 +46,11 @@ exports.uploadProfilePicture = async (req, res) => {
       await deleteProfileImage(user.profilePictureId);
     }
     
-    // Upload image to Cloudinary
-    const uploadResult = await uploadProfileImage(profilePictureFile);
+    // Upload image to Cloudinary using our selected file
+    const uploadResult = await uploadProfileImage(file);
     
     // Update user with new profile picture info
-    user.profilePicture = uploadResult.url;
+    user.profilePicture = uploadResult.secure_url;
     user.profilePictureId = uploadResult.public_id;
     await user.save();
     
@@ -71,7 +73,7 @@ exports.uploadProfilePicture = async (req, res) => {
 
 /**
  * @desc Delete user profile picture
- * @route DELETE /api/users/profile/picture
+ * @route DELETE /api/profile-picture
  * @access Private
  */
 exports.deleteProfilePicture = async (req, res) => {

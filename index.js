@@ -13,6 +13,7 @@ const { errorHandler } = require("./src/middleware/error.middleware");
 const authRoutes = require("./src/routes/auth.routes");
 const userRoutes = require("./src/routes/user.routes");
 const postRoutes = require("./src/routes/post.routes");
+const profilePictureRoutes = require("./src/routes/profilePicture.routes"); // Add this line
 // Ensure these routes exist or comment them out if not implemented yet
 // const projectRoutes = require("./src/routes/project.routes");
 // const commentRoutes = require("./src/routes/comment.routes");
@@ -138,6 +139,7 @@ app.use((err, req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/profile-picture", profilePictureRoutes); // Add this line
 // Ensure these routes exist or comment them out if not implemented yet
 // app.use("/api/projects", projectRoutes);
 // app.use("/api/comments", commentRoutes);
