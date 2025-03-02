@@ -56,3 +56,30 @@ body.dark-mode::-webkit-scrollbar-thumb {
 body.dark-mode::-webkit-scrollbar-thumb:hover {
   background: #3a3d45;
 }
+
+/* Add these animation classes to your existing CSS */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Add this for the spinner animation if not already defined */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* For text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

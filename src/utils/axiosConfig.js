@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 
 // Get backend URL from environment or use a fallback
 let BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/';
@@ -13,6 +14,11 @@ console.log('Backend URL:', BACKEND_URL); // For debugging
 // Create an axios instance
 const api = axios.create({
   baseURL: BACKEND_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  // Add timeout to prevent hanging requests
+  timeout: 10000,
 });
 
 // Add a request interceptor to add the auth token to every request
@@ -49,6 +55,13 @@ api.interceptors.response.use(
       // Redirect to login page if needed
       window.location.href = '/login';
     }
+    
+    // Log all API errors
+    console.error('API Error:', error.response?.data || error.message);
+    
+    // Show user-friendly message
+    toast.error(error.response?.data?.message || 'An error occurred');
+    
     return Promise.reject(error);
   }
 );

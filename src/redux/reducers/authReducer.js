@@ -1,21 +1,53 @@
 import { createSlice } from '@reduxjs/toolkit';
 import api from '../../utils/axiosConfig';
+import {
+  GET_PROFILE_REQUEST,
+  GET_PROFILE_SUCCESS,
+  GET_PROFILE_FAILURE,
+  UPDATE_PROFILE_REQUEST,
+  UPDATE_PROFILE_SUCCESS,
+  UPDATE_PROFILE_FAILURE,
+  DELETE_ACCOUNT_REQUEST,
+  DELETE_ACCOUNT_SUCCESS,
+  DELETE_ACCOUNT_FAILURE,
+  GET_PROFILE_STATS_REQUEST,
+  GET_PROFILE_STATS_SUCCESS,
+  GET_PROFILE_STATS_FAILURE
+} from '../constants/authConstants';
 
 const initialState = {
   user: null,
   token: localStorage.getItem('token') || null,
   isAuthenticated: false,
+  username:"",
   email: '',
   password: '',
   fullName: '',
   loading: false,
   error: null,
+  profileLoading: false,
+  profileError: null,
+  profileUpdateSuccess: false,
+  deleteAccountLoading: false,
+  deleteAccountError: null,
+  profileStats: {
+    followersCount: 0,
+    followingCount: 0,
+    projectsCount: 0
+  },
+  statsLoading: false
 };
 
 export const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
+    setUsername: (state, action) => {
+      state.username = action.payload;
+      // if (state.user) {
+      //   state.user.username = action.payload;
+      // }
+    },
     setEmail: (state, action) => {
       state.email = action.payload;
     },
@@ -51,17 +83,83 @@ export const authSlice = createSlice({
       // Clear from localStorage
       localStorage.removeItem('token');
     },
+    getProfileRequest: (state) => {
+      state.profileLoading = true;
+      state.profileError = null;
+    },
+    getProfileSuccess: (state, action) => {
+      state.user = action.payload;
+      state.profileLoading = false;
+      state.profileError = null;
+    },
+    getProfileFailure: (state, action) => {
+      state.profileLoading = false;
+      state.profileError = action.payload;
+    },
+    updateProfileRequest: (state) => {
+      state.profileLoading = true;
+      state.profileError = null;
+      state.profileUpdateSuccess = false;
+    },
+    updateProfileSuccess: (state, action) => {
+      state.user = action.payload;
+      state.profileLoading = false;
+      state.profileError = null;
+      state.profileUpdateSuccess = true;
+    },
+    updateProfileFailure: (state, action) => {
+      state.profileLoading = false;
+      state.profileError = action.payload;
+      state.profileUpdateSuccess = false;
+    },
+    deleteAccountRequest: (state) => {
+      state.deleteAccountLoading = true;
+      state.deleteAccountError = null;
+    },
+    deleteAccountSuccess: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
+      state.deleteAccountLoading = false;
+      state.token = null;
+    },
+    deleteAccountFailure: (state, action) => {
+      state.deleteAccountLoading = false;
+      state.deleteAccountError = action.payload;
+    },
+    getProfileStatsRequest: (state) => {
+      state.statsLoading = true;
+    },
+    getProfileStatsSuccess: (state, action) => {
+      state.profileStats = action.payload;
+      state.statsLoading = false;
+    },
+    getProfileStatsFailure: (state) => {
+      state.statsLoading = false;
+    }
   },
 });
 
 export const { 
+  setUsername,
   setEmail, 
   setPassword, 
   setFullName, 
   loginStart, 
   loginSuccess, 
   loginFailure, 
-  logoutSuccess 
+  logoutSuccess,
+  getProfileRequest,
+  getProfileSuccess,
+  getProfileFailure,
+  updateProfileRequest,
+  updateProfileSuccess,
+  updateProfileFailure,
+  deleteAccountRequest,
+  deleteAccountSuccess,
+  deleteAccountFailure,
+  getProfileStatsRequest,
+  getProfileStatsSuccess,
+  getProfileStatsFailure
 } = authSlice.actions;
 
 // Thunk action to handle login
@@ -125,5 +223,6 @@ export const selectAuth = (state) => state.auth;
 export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 export const selectToken = (state) => state.auth.token;
+export const selectAuthLoading = (state) => state.auth.loading;
 
 export default authSlice.reducer;

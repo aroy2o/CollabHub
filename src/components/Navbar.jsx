@@ -85,7 +85,7 @@ const Navbar = () => {
         {/* Desktop Navigation */}
         <div className="hidden md:flex space-x-6">
           <Link to="/" className="nav-link" style={{ color: colors.textPrimary }}>Home</Link>
-          <Link to="/projects" className="nav-link" style={{ color: colors.textPrimary }}>Projects</Link>
+          <Link to="/peoples" className="nav-link" style={{ color: colors.textPrimary }}>Peoples</Link>
           <Link to="/community" className="nav-link" style={{ color: colors.textPrimary }}>Community</Link>
           <Link to="/resources" className="nav-link" style={{ color: colors.textPrimary }}>Resources</Link>
         </div>

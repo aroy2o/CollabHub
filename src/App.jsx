@@ -1,15 +1,12 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AppRoutes from './routes/Routes';
 import { selectTheme, applyThemeFromStorage } from './redux/reducers/themeReducer';
 import { loadUser } from './redux/reducers/authReducer';
 import themeColors from './utils/themeColors';
-import Home from './components/Home';
-import Login from './components/Login';
-import Signup from './components/Signup';
 
 const App = () => {
   const { darkMode } = useSelector(selectTheme);
@@ -39,12 +36,7 @@ const App = () => {
       <Toaster position="top-center" />
       <Navbar />
       <div style={{ paddingTop: '5rem' }}>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          {/* Other routes */}
-        </Routes>
+        <AppRoutes />
       </div>
       <Footer />
     </div>
