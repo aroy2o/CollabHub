@@ -44,31 +44,37 @@ const errorHandler = (err, req, res, next) => {
 /**
  * Express middleware to handle JSON parsing errors
  */
-exports.jsonParseErrorHandler = (err, req, res, next) => {
+const jsonErrorHandler = (err, req, res, next) => {
   if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-    console.error('JSON Parse Error:', err.message);
-    return res.status(400).json({ 
-      success: false, 
-      message: 'Invalid JSON payload', 
-      error: err.message 
+    console.error('JSON parsing error:', err.message);
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid JSON payload',
+      error: err.message
     });
   }
   
+  // Pass error to next middleware if it's not a JSON parsing error
   next(err);
 };
 
 /**
- * Express middleware to handle empty request bodies
+ * General error handler middleware
  */
-exports.emptyBodyHandler = (req, res, next) => {
-  if (req.method === 'POST' && req.headers['content-type']?.includes('application/json') && !Object.keys(req.body).length) {
-    req.body = {};  // Explicitly set to empty object to avoid parsing issues
-  }
+const generalErrorHandler = (err, req, res, next) => {
+  console.error('Global error handler:', err);
   
-  next();
+  const statusCode = err.statusCode || 500;
+  
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+    error: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.stack
+  });
 };
 
 module.exports = {
   AppError,
-  errorHandler
+  errorHandler: generalErrorHandler,
+  jsonErrorHandler
 };

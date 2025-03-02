@@ -19,45 +19,22 @@ const mongoose = require("mongoose");
 
 // Import the follow utils
 const { checkFollowRelationship } = require('../utils/followUtils');
+const { validateUserId, preventSelfAction } = require('../middleware/validation.middleware');
 
 const router = express.Router();
 
-// This middleware handles empty body specifically for follow/unfollow routes
-const handleFollowRequest = (req, res, next) => {
-  try {
-    console.log('Follow request handler - before:', {
-      body: req.body,
-      contentType: req.headers['content-type']
-    });
-    
-    // Force req.body to be an object
-    req.body = req.body || {};
-    
-    // Ensure we don't continue with an undefined body
-    if (typeof req.body !== 'object') {
-      req.body = {};
-    }
-    
-    console.log('Follow request handler - after:', {
-      body: req.body,
-      contentType: req.headers['content-type']
-    });
-    
-    next();
-  } catch (error) {
-    console.error('Error in follow request handler:', error);
-    // Don't let parsing errors stop the request
-    req.body = {};
-    next();
-  }
+// Much simpler middleware for handling empty bodies - focus on reliability
+const ensureRequestBody = (req, res, next) => {
+  req.body = req.body || {};
+  next();
 };
 
 /**
  * @route   GET /api/users
  * @desc    Get all users
- * @access  Private (Admin)
+ * @access  Public
  */
-router.get("/", protect, adminOnly, getAllUsers);
+router.get("/", getAllUsers);
 
 /**
  * @route   GET /api/users/profile/me
@@ -92,14 +69,28 @@ router.delete("/:id", protect, isOwnerOrAdmin, deleteUserById);
  * @desc    Follow a user
  * @access  Private
  */
-router.post("/follow/:id", protect, handleFollowRequest, followUser);
+router.post("/follow/:id", protect, validateUserId, preventSelfAction, followUser);
 
 /**
  * @route   POST /api/users/unfollow/:id
  * @desc    Unfollow a user
  * @access  Private
  */
-router.post("/unfollow/:id", protect, handleFollowRequest, unfollowUser);
+router.post("/unfollow/:id", protect, validateUserId, preventSelfAction, unfollowUser);
+
+/**
+ * @route   GET /api/users/follow-alt/:id
+ * @desc    Alternative way to follow a user (GET request)
+ * @access  Private
+ */
+router.get("/follow-alt/:id", protect, validateUserId, preventSelfAction, followUser);
+
+/**
+ * @route   GET /api/users/unfollow-alt/:id
+ * @desc    Alternative way to unfollow a user (GET request)
+ * @access  Private
+ */
+router.get("/unfollow-alt/:id", protect, validateUserId, preventSelfAction, unfollowUser);
 
 /**
  * @route   GET /api/users/:id/followers
@@ -123,174 +114,16 @@ router.get("/:id/following", getFollowing);
 router.get("/:id/is-following", protect, checkIfFollowing);
 
 /**
- * @route   GET /api/users/follow-user/:id
- * @desc    Alternative way to follow a user (using GET to avoid JSON body issues)
+ * @route   GET /api/users/follow-status/:targetId
+ * @desc    Alternative way to check follow status with better error handling
  * @access  Private
  */
-router.get("/follow-user/:id", protect, async (req, res) => {
+router.get("/follow-status/:targetId", protect, async (req, res) => {
   try {
-    const targetUserId = req.params.id;
+    const targetUserId = req.params.targetId;
     const currentUserId = req.user._id;
     
-    // Basic validation
-    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID format"
-      });
-    }
-    
-    if (targetUserId === currentUserId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot follow yourself"
-      });
-    }
-    
-    // Find target user
-    const targetUser = await User.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Target user not found"
-      });
-    }
-    
-    // Check if already following
-    const isAlreadyFollowing = targetUser.followers.some(follower => 
-      follower.toString() === currentUserId.toString()
-    );
-    
-    if (isAlreadyFollowing) {
-      return res.status(400).json({
-        success: false,
-        message: "You are already following this user"
-      });
-    }
-    
-    // Update the follow relationship
-    await Promise.all([
-      User.findByIdAndUpdate(
-        targetUserId,
-        { $addToSet: { followers: currentUserId } }
-      ),
-      User.findByIdAndUpdate(
-        currentUserId,
-        { $addToSet: { following: targetUserId } }
-      )
-    ]);
-    
-    return res.status(200).json({
-      success: true,
-      message: "Successfully followed user",
-      data: { followedUserId: targetUserId }
-    });
-  } catch (error) {
-    console.error('Follow user error:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error while following user",
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route   GET /api/users/unfollow-user/:id
- * @desc    Alternative way to unfollow a user (using GET to avoid JSON body issues)
- * @access  Private
- */
-router.get("/unfollow-user/:id", protect, async (req, res) => {
-  try {
-    const targetUserId = req.params.id;
-    const currentUserId = req.user._id;
-    
-    console.log(`Alternative unfollow route used: ${currentUserId} -> ${targetUserId}`);
-    
-    // Basic validation
-    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID format"
-      });
-    }
-    
-    if (targetUserId === currentUserId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot unfollow yourself"
-      });
-    }
-    
-    // Find both users
-    const [targetUser, currentUser] = await Promise.all([
-      User.findById(targetUserId),
-      User.findById(currentUserId)
-    ]);
-    
-    // Verify both users exist
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Target user not found"
-      });
-    }
-    
-    if (!currentUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Current user not found"
-      });
-    }
-    
-    // Check if following using string comparison
-    const targetIdStr = targetUserId.toString();
-    const isFollowing = currentUser.following.some(id => id.toString() === targetIdStr);
-    
-    if (!isFollowing) {
-      return res.status(400).json({
-        success: false,
-        message: "You are not following this user"
-      });
-    }
-    
-    // Process unfollow
-    await Promise.all([
-      User.updateOne(
-        { _id: targetUserId },
-        { $pull: { followers: currentUserId } }
-      ),
-      User.updateOne(
-        { _id: currentUserId },
-        { $pull: { following: targetUserId } }
-      )
-    ]);
-    
-    return res.status(200).json({
-      success: true,
-      message: "Successfully unfollowed user",
-      data: { unfollowedUserId: targetUserId }
-    });
-  } catch (error) {
-    console.error('GET unfollow user error:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error while unfollowing user",
-      error: error.message
-    });
-  }
-});
-
-/**
- * @route   GET /api/users/debug/follow-status/:followerId/:targetId
- * @desc    Debug route to check follow relationship between two users
- * @access  Private (Admin only)
- */
-router.get("/debug/follow-status/:followerId/:targetId", protect, adminOnly, async (req, res) => {
-  try {
-    const { followerId, targetId } = req.params;
-    
-    const result = await checkFollowRelationship(followerId, targetId);
+    const result = await checkFollowRelationship(currentUserId, targetUserId);
     
     if (result.error) {
       return res.status(400).json({
@@ -301,14 +134,127 @@ router.get("/debug/follow-status/:followerId/:targetId", protect, adminOnly, asy
     
     return res.status(200).json({
       success: true,
-      message: "Follow relationship details",
       data: result
     });
   } catch (error) {
-    console.error('Debug follow status error:', error);
+    console.error('Follow status error:', error);
     return res.status(500).json({
       success: false,
-      message: "Server error checking follow relationship",
+      message: "Server error checking follow status",
+      error: error.message
+    });
+  }
+});
+
+/**
+ * @route   GET /api/users/test-follow/:targetId
+ * @desc    Test follow functionality
+ * @access  Private
+ */
+router.get("/test-follow/:targetId", protect, async (req, res) => {
+  try {
+    const targetId = req.params.targetId;
+    const currentUserId = req.user._id;
+    
+    // Check if valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(targetId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+    
+    // Get target user
+    const targetUser = await User.findById(targetId);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: "Target user not found" });
+    }
+    
+    // Get current user
+    const currentUser = await User.findById(currentUserId);
+    
+    // Check current follow status
+    const isFollowing = currentUser.following.some(id => id.toString() === targetId);
+    
+    // Toggle follow status
+    if (isFollowing) {
+      // Unfollow
+      await Promise.all([
+        User.updateOne(
+          { _id: targetId },
+          { $pull: { followers: currentUserId } }
+        ),
+        User.updateOne(
+          { _id: currentUserId },
+          { $pull: { following: targetId } }
+        )
+      ]);
+      return res.json({ success: true, action: "unfollowed", targetUser: targetUser.fullName });
+    } else {
+      // Follow
+      await Promise.all([
+        User.updateOne(
+          { _id: targetId },
+          { $addToSet: { followers: currentUserId } }
+        ),
+        User.updateOne(
+          { _id: currentUserId },
+          { $addToSet: { following: targetId } }
+        )
+      ]);
+      return res.json({ success: true, action: "followed", targetUser: targetUser.fullName });
+    }
+  } catch (error) {
+    console.error("Test follow error:", error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * @route   GET /api/users/follow-debug/:id
+ * @desc    Debug follow status
+ * @access  Private
+ */
+router.get("/follow-debug/:id", protect, validateUserId, async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const currentId = req.user._id;
+    
+    const [targetUser, currentUser] = await Promise.all([
+      User.findById(targetId).select('_id fullName followers'),
+      User.findById(currentId).select('_id fullName following')
+    ]);
+    
+    if (!targetUser || !currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: !targetUser ? "Target user not found" : "Current user not found"
+      });
+    }
+    
+    const isFollowing = currentUser.following.some(id => id.toString() === targetId);
+    const isFollower = targetUser.followers.some(id => id.toString() === currentId.toString());
+    
+    return res.status(200).json({
+      success: true,
+      data: {
+        isFollowing,
+        isFollower,
+        followStateConsistent: isFollowing === isFollower,
+        users: {
+          current: {
+            id: currentUser._id,
+            name: currentUser.fullName
+          },
+          target: {
+            id: targetUser._id,
+            name: targetUser.fullName
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Follow debug error:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Error checking follow status",
       error: error.message
     });
   }

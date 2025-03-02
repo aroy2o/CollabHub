@@ -205,10 +205,68 @@ const isFollowing = async (currentUserId, targetUserId) => {
   return currentUser.following.includes(targetUserId);
 };
 
+/**
+ * Debug follow relationships and fix inconsistencies
+ * @param {string} userId - ID of the user to check
+ * @returns {Object} - Diagnostic information
+ */
+const debugFollowRelationships = async (userId) => {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error('Invalid user ID format');
+  }
+  
+  const user = await User.findById(userId).populate('following').populate('followers');
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  const diagnostics = {
+    userId: userId,
+    username: user.fullName,
+    followingCount: user.following.length,
+    followerCount: user.followers.length,
+    followingInconsistencies: [],
+    followerInconsistencies: []
+  };
+  
+  // Check following relationships
+  for (const followingUser of user.following) {
+    const hasFollower = followingUser.followers.some(id => 
+      id.toString() === userId.toString()
+    );
+    
+    if (!hasFollower) {
+      diagnostics.followingInconsistencies.push({
+        followingId: followingUser._id.toString(),
+        followingName: followingUser.fullName,
+        issue: "User is in following but not in target's followers"
+      });
+    }
+  }
+  
+  // Check follower relationships
+  for (const followerUser of user.followers) {
+    const isFollowing = followerUser.following.some(id => 
+      id.toString() === userId.toString()
+    );
+    
+    if (!isFollowing) {
+      diagnostics.followerInconsistencies.push({
+        followerId: followerUser._id.toString(),
+        followerName: followerUser.fullName,
+        issue: "User is in followers but not in follower's following"
+      });
+    }
+  }
+  
+  return diagnostics;
+};
+
 module.exports = {
   followUser,
   unfollowUser,
   getFollowers,
   getFollowing,
-  isFollowing
+  isFollowing,
+  debugFollowRelationships
 };

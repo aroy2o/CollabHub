@@ -7,16 +7,14 @@ const mongoose = require("mongoose");
 const fileUpload = require("express-fileupload");
 const cloudinary = require("cloudinary").v2;
 const logger = require("./src/utils/logger");
-const { errorHandler } = require("./src/middleware/error.middleware");
+const { errorHandler, jsonErrorHandler } = require("./src/middleware/error.middleware");
+const { jsonBodySafeParser, jsonParsingErrorHandler } = require('./src/middleware/jsonBodyHandler.middleware');
 
 // Import Routes
 const authRoutes = require("./src/routes/auth.routes");
 const userRoutes = require("./src/routes/user.routes");
 const postRoutes = require("./src/routes/post.routes");
-const profilePictureRoutes = require("./src/routes/profilePicture.routes"); // Add this line
-// Ensure these routes exist or comment them out if not implemented yet
-// const projectRoutes = require("./src/routes/project.routes");
-// const commentRoutes = require("./src/routes/comment.routes");
+const profilePictureRoutes = require("./src/routes/profilePicture.routes");
 
 // Import the new middleware
 const { handleEmptyBody } = require("./src/middleware/bodyParser.middleware");
@@ -43,24 +41,19 @@ app.use(cors({
 app.use(cors()); // Enable CORS
 app.use(helmet()); // Secure HTTP headers
 
-// Fix: Apply JSON body parsing to ALL routes, not just non-GET routes
+// Parsing middleware - optimized order
 app.use(express.json({
-  limit: '1mb',
+  limit: '10mb',
   verify: (req, res, buf, encoding) => {
-    try {
-      // Test if the body is valid JSON by parsing it
-      if (buf.length) {
-        JSON.parse(buf);
-      }
-    } catch (e) {
-      // If there's a JSON parsing error for follow routes, provide an empty body
-      if (req.path.includes('/follow/')) {
-        req.body = {};
-      }
-    }
+    // No need to pre-parse here, just pass along for proper error handling
   }
-})); // Parse JSON request bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded data
+})); 
+app.use(express.urlencoded({ extended: true }));
+
+// Apply specialized JSON handling middleware
+app.use(jsonParsingErrorHandler);  // First catch any JSON parsing errors
+app.use(jsonBodySafeParser);       // Then ensure follow routes always have a body
+
 app.use(morgan("dev")); // HTTP request logger
 app.use(fileUpload({
   useTempFiles: true,
@@ -68,17 +61,12 @@ app.use(fileUpload({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 }));
 
-// Specific handling for follow routes - add this before other routes
+// Single unified middleware for follow routes
 app.use((req, res, next) => {
-  if (req.path.includes('/follow/') && req.method === 'POST') {
-    // Log follow request info
-    console.log('Follow request received:');
-    console.log('- Path:', req.path);
-    console.log('- Method:', req.method);
-    console.log('- Content-Type:', req.headers['content-type']);
-    
-    // Always ensure there's a body object for these routes
+  if ((req.path.includes('/follow/') || req.path.includes('/unfollow/')) && req.method === 'POST') {
+    // Always ensure there's a body object
     req.body = req.body || {};
+    console.log(`Follow/unfollow request: ${req.method} ${req.path} - Body set to:`, req.body);
   }
   next();
 });
@@ -112,37 +100,22 @@ app.use((req, res, next) => {
 });
 
 // Error handling middleware for JSON parsing errors
-app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
-    console.error("JSON Parsing Error:", err.message);
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON payload",
-      error: err.message,
-    });
-  }
-  next(err);  // Make sure to pass the error to the next middleware
-});
-
-// Remove or comment out this empty request body check for clarity:
-// app.use((req, res, next) => {
-//   if (req.method !== "GET" && req.headers["content-length"] === "0") {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Empty request body",
-//     });
-//   }
-//   next();
-// });
+app.use(jsonErrorHandler);
 
 // API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
-app.use("/api/profile-picture", profilePictureRoutes); // Add this line
-// Ensure these routes exist or comment them out if not implemented yet
-// app.use("/api/projects", projectRoutes);
-// app.use("/api/comments", commentRoutes);
+app.use("/api/profile-picture", profilePictureRoutes);
+
+// Add simple status endpoint for health checks
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
 // Error Handling Middleware
 app.use(errorHandler);

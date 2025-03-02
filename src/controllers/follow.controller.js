@@ -1,18 +1,22 @@
 const User = require('../models/user.model');
 const mongoose = require('mongoose');
-const { checkFollowRelationship } = require('../utils/followUtils');
+const logger = require('../utils/logger');
 
 /**
- * @desc Follow a user
+ * Optimized follow user controller
  * @route POST /api/users/follow/:id
  * @access Private
  */
 exports.followUser = async (req, res) => {
+  const start = Date.now(); // For performance tracking
+  
   try {
     const targetUserId = req.params.id;
     const currentUserId = req.user._id;
     
-    // Basic validation
+    logger.info(`Follow request: ${currentUserId} -> ${targetUserId}`);
+    
+    // Quick validation - fail fast for obvious issues
     if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
       return res.status(400).json({
         success: false,
@@ -20,6 +24,7 @@ exports.followUser = async (req, res) => {
       });
     }
     
+    // Prevent self-following
     if (targetUserId === currentUserId.toString()) {
       return res.status(400).json({
         success: false,
@@ -27,86 +32,13 @@ exports.followUser = async (req, res) => {
       });
     }
     
-    // Find target user
-    const targetUser = await User.findById(targetUserId);
-    if (!targetUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Target user not found"
-      });
-    }
-    
-    // Check if already following
-    const isAlreadyFollowing = targetUser.followers.some(follower => 
-      follower.toString() === currentUserId.toString()
-    );
-    
-    if (isAlreadyFollowing) {
-      return res.status(400).json({
-        success: false,
-        message: "You are already following this user"
-      });
-    }
-    
-    // Update the follow relationship
-    await Promise.all([
-      User.findByIdAndUpdate(
-        targetUserId,
-        { $addToSet: { followers: currentUserId } }
-      ),
-      User.findByIdAndUpdate(
-        currentUserId,
-        { $addToSet: { following: targetUserId } }
-      )
-    ]);
-    
-    return res.status(200).json({
-      success: true,
-      message: "Successfully followed user",
-      data: { followedUserId: targetUserId }
-    });
-  } catch (error) {
-    console.error('Follow user error:', error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error while following user",
-      error: error.message
-    });
-  }
-};
-
-/**
- * @desc Unfollow a user
- * @route POST /api/users/unfollow/:id
- * @access Private
- */
-exports.unfollowUser = async (req, res) => {
-  try {
-    const targetUserId = req.params.id;
-    const currentUserId = req.user._id;
-    
-    // Basic validation
-    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID format"
-      });
-    }
-    
-    if (targetUserId === currentUserId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot unfollow yourself"
-      });
-    }
-    
-    // Find both users
+    // Find both users in parallel - more efficient than sequential queries
     const [targetUser, currentUser] = await Promise.all([
-      User.findById(targetUserId),
-      User.findById(currentUserId)
+      User.findById(targetUserId).select('_id fullName followers'),
+      User.findById(currentUserId).select('_id following')
     ]);
     
-    // Verify both users exist
+    // Validation checks
     if (!targetUser) {
       return res.status(404).json({
         success: false,
@@ -121,9 +53,114 @@ exports.unfollowUser = async (req, res) => {
       });
     }
     
-    // Check if following
-    const targetIdStr = targetUserId.toString();
-    const isFollowing = currentUser.following.some(id => id.toString() === targetIdStr);
+    // Check if already following - prevent duplicate follows
+    const isAlreadyFollowing = currentUser.following.some(id => 
+      id.toString() === targetUserId
+    );
+    
+    if (isAlreadyFollowing) {
+      return res.status(400).json({
+        success: false,
+        message: "You are already following this user"
+      });
+    }
+    
+    // Optimized update operations - no session needed for simple operations
+    // Use updateOne for better performance than findAndUpdate
+    await Promise.all([
+      User.updateOne(
+        { _id: targetUserId },
+        { $addToSet: { followers: currentUserId } }
+      ),
+      User.updateOne(
+        { _id: currentUserId },
+        { $addToSet: { following: targetUserId } }
+      )
+    ]);
+    
+    // Log performance
+    const duration = Date.now() - start;
+    logger.info(`Follow operation completed in ${duration}ms: ${currentUserId} followed ${targetUserId}`);
+    
+    return res.status(200).json({
+      success: true,
+      message: "Successfully followed user",
+      data: { 
+        followedUserId: targetUserId,
+        followedUserName: targetUser.fullName 
+      }
+    });
+  } catch (error) {
+    logger.error('Follow operation error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?._id,
+      targetId: req.params?.id
+    });
+    
+    return res.status(500).json({
+      success: false,
+      message: "Server error while processing follow request",
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
+    });
+  }
+};
+
+/**
+ * Optimized unfollow user controller
+ * @route POST /api/users/unfollow/:id
+ * @access Private
+ */
+exports.unfollowUser = async (req, res) => {
+  const start = Date.now(); // For performance tracking
+  
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user._id;
+    
+    logger.info(`Unfollow request: ${currentUserId} -> ${targetUserId}`);
+    
+    // Quick validation - fail fast for obvious issues
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format"
+      });
+    }
+    
+    // Prevent self-unfollowing
+    if (targetUserId === currentUserId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot unfollow yourself"
+      });
+    }
+    
+    // Find both users in parallel - more efficient than sequential queries
+    const [targetUser, currentUser] = await Promise.all([
+      User.findById(targetUserId).select('_id fullName followers'),
+      User.findById(currentUserId).select('_id following')
+    ]);
+    
+    // Validation checks
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Target user not found"
+      });
+    }
+    
+    if (!currentUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Current user not found"
+      });
+    }
+    
+    // Check if actually following - prevent unnecessary operations
+    const isFollowing = currentUser.following.some(id => 
+      id.toString() === targetUserId
+    );
     
     if (!isFollowing) {
       return res.status(400).json({
@@ -132,7 +169,7 @@ exports.unfollowUser = async (req, res) => {
       });
     }
     
-    // Process unfollow
+    // Optimized update operations
     await Promise.all([
       User.updateOne(
         { _id: targetUserId },
@@ -144,17 +181,30 @@ exports.unfollowUser = async (req, res) => {
       )
     ]);
     
+    // Log performance
+    const duration = Date.now() - start;
+    logger.info(`Unfollow operation completed in ${duration}ms: ${currentUserId} unfollowed ${targetUserId}`);
+    
     return res.status(200).json({
       success: true,
       message: "Successfully unfollowed user",
-      data: { unfollowedUserId: targetUserId }
+      data: { 
+        unfollowedUserId: targetUserId,
+        unfollowedUserName: targetUser.fullName 
+      }
     });
   } catch (error) {
-    console.error('Unfollow user error:', error);
+    logger.error('Unfollow operation error:', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?._id,
+      targetId: req.params?.id
+    });
+    
     return res.status(500).json({
       success: false,
-      message: "Server error while unfollowing user",
-      error: error.message
+      message: "Server error while processing unfollow request",
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
     });
   }
 };

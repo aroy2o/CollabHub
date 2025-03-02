@@ -106,6 +106,11 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
+// Add indexes for better performance on the followers and following arrays
+// This dramatically speeds up lookups when checking follow relationships
+UserSchema.index({ followers: 1 });
+UserSchema.index({ following: 1 });
+
 // Pre-save hook to ensure email is valid and hash the password
 UserSchema.pre("save", async function (next) {
   try {
@@ -147,6 +152,23 @@ UserSchema.methods.generateAuthToken = function () {
 // Compare hashed passwords
 UserSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Optimize methods for checking follow status
+UserSchema.methods.isFollowing = function(userId) {
+  // Convert to string for consistency
+  const targetIdStr = userId instanceof mongoose.Types.ObjectId ? 
+    userId.toString() : String(userId);
+  
+  return this.following.some(id => id.toString() === targetIdStr);
+};
+
+UserSchema.methods.hasFollower = function(userId) {
+  // Convert to string for consistency
+  const followerIdStr = userId instanceof mongoose.Types.ObjectId ? 
+    userId.toString() : String(userId);
+  
+  return this.followers.some(id => id.toString() === followerIdStr);
 };
 
 // Virtual fields for follower/following counts

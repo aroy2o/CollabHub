@@ -163,7 +163,7 @@ exports.deleteUser = async (req, res) => {
 /**
  * @desc Get all users
  * @route GET /api/users
- * @access Private (Admin)
+ * @access Public
  */
 exports.getAllUsers = async (req, res) => {
   try {

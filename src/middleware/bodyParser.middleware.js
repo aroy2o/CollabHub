@@ -1,24 +1,32 @@
 /**
- * Special middleware to handle empty request bodies for specific routes like follow/unfollow
- * that don't require request bodies but are sent with content-type: application/json
+ * Middleware to handle empty request bodies
  */
 exports.handleEmptyBody = (req, res, next) => {
-  // Convert path to lowercase for case-insensitive matching
-  const path = req.path.toLowerCase();
-  
-  // Check if this is a follow-related request
-  const isFollowRequest = path.includes('/follow/') || path.includes('/unfollow/');
-  
-  // Debug logging
-  console.log(`Request path: ${req.path}, Method: ${req.method}, ContentType: ${req.headers['content-type']}`);
-  console.log(`Is follow request: ${isFollowRequest}, Body keys: ${Object.keys(req.body || {}).length}`);
-  
-  // Force empty object for follow routes regardless of content-type
-  if (isFollowRequest && req.method === 'POST') {
-    // Always provide a defined body object for follow/unfollow routes
-    req.body = req.body || {};
-    console.log('Empty body handler applied');
+  // For POST and PUT requests, ensure body exists
+  if ((req.method === 'POST' || req.method === 'PUT') && !req.body) {
+    req.body = {};
   }
-  
   next();
+};
+
+/**
+ * Middleware to handle JSON parsing errors
+ */
+exports.handleJsonErrors = (err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('JSON parsing error:', err.message);
+    
+    // For follow/unfollow routes, continue with empty body
+    if (req.path.includes('/follow/') || req.path.includes('/unfollow/')) {
+      req.body = {};
+      return next();
+    }
+    
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid JSON payload',
+      error: err.message
+    });
+  }
+  next(err);
 };
